@@ -25,20 +25,13 @@ class LSBERT(nn.Module):
         if self.dr_rate:
             self.dropout = nn.Dropout(p=dr_rate[2])
 
-        self.month_classifier = nn.Linear(self.fc_size, 12)
-        self.month_fc = nn.Linear(hidden_size, self.fc_size)
-        self.day_classifier = nn.Linear(self.fc_size, 31)
-        self.day_fc = nn.Linear(hidden_size, self.fc_size)
-        self.hour_classifier = nn.Linear(self.fc_size, 24)
-        self.hour_fc = nn.Linear(hidden_size, self.fc_size)
-        self.min_classifier = nn.Linear(self.fc_size, 12)
-        self.min_fc = nn.Linear(hidden_size, self.fc_size)
+        self.out_classifier = nn.Linear(self.fc_size, 3)
+        self.out_fc = nn.Linear(hidden_size, self.fc_size)
 
         self.relu = nn.ReLU()
 
     def forward(self, x):
         PAD_pooler = torch.zeros(1, 768, dtype = torch.float32)
-        schedule_out = []
         pooler = []
         for _ in range(64 - len(x)):
             pooler += PAD_pooler.tolist()
@@ -51,6 +44,7 @@ class LSBERT(nn.Module):
 
         # print(pooler)
         pooler = torch.tensor(pooler, dtype=torch.float32).to(device)
+        # print(pooler.size())
         pooler = pooler.reshape(1, 64, 768)
 
         seq_len = torch.tensor(len(x)).to(device)
@@ -60,26 +54,12 @@ class LSBERT(nn.Module):
         if self.dr_rate:
             out = self.dropout(out)
 
-        m_out = self.month_fc(out)
+        m_out = self.out_fc(out)
         m_out = self.relu(m_out)
-        d_out = self.day_fc(out)
-        d_out = self.relu(d_out)
-        h_out = self.hour_fc(out)
-        h_out = self.relu(h_out)
-        mi_out = self.min_fc(out)
-        mi_out = self.relu(mi_out)
 
         if self.dr_rate:
             m_out = self.dropout(m_out)
-            d_out = self.dropout(d_out)
-            h_out = self.dropout(h_out)
-            mi_out = self.dropout(mi_out)
 
-        m_out = self.month_classifier(m_out)
-        d_out = self.day_classifier(d_out)
-        h_out = self.hour_classifier(h_out)
-        mi_out = self.min_classifier(mi_out)
-
-        schedule_out = [m_out, d_out, h_out, mi_out]
+        m_out = self.out_classifier(m_out)
         
-        return schedule_out
+        return [m_out]
