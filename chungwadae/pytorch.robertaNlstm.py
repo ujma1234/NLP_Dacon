@@ -139,7 +139,7 @@ warmup_ratio = 0.1
 num_epochs = 5
 max_grad_norm = 1
 log_interval = 200
-learning_rate =  5e-5
+learning_rate =  0.5
 
 data_train = RoBERTaDataset(dataset_train, len(dataset_train), tokenizer, max_len)
 # data_test = RoBERTaDataset(dataset_test, len(dataset_test), tokenizer, max_len)
@@ -153,8 +153,8 @@ bertmodel = bertmodel.to(device)
         
 model = ps_bertNlstm.LSBERT(hidden_size = 768, fc_size = 2048, num_layers=1, bertmodel = bertmodel, dr_rate = dr_rates, bert_type=1).to(device)
 
-# checkpoint = torch.load(".cache/robertNlstm-1.pt", map_location=device)
-# # model.load_state_dict(checkpoint['model_state_dict'])
+checkpoint = torch.load(".cache/robertNlstm-401.pt", map_location=device)
+model.load_state_dict(checkpoint['model_state_dict'])
 
 # no_decay = ['bias', 'LayerNorm.weight']
 # optimizer_grouped_parameters = [
@@ -172,13 +172,13 @@ model = ps_bertNlstm.LSBERT(hidden_size = 768, fc_size = 2048, num_layers=1, ber
 # #     n+=1
 
 optimizer = AdamW(model.parameters(), lr=learning_rate)
-# # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
 # # print(checkpoint["description"])
 
 t_total = len(train_dataloader) * num_epochs
 warmup_step = int(t_total * warmup_ratio)
-scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=warmup_step, num_training_steps=t_total)
+# scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=warmup_step, num_training_steps=t_total)
 
 def make_loss_N_Backward(data, label):
     loss_fn = nn.CrossEntropyLoss()
@@ -192,18 +192,11 @@ def make_loss_N_Backward(data, label):
     return losses
 
 def calc_accuracy(X,Y):
-    pred = []
-    vals = []
-    indices = []
-    mon = X[0].reshape(1, 3)
-    pred = [mon]
-    Y = Y[0]
-    for i, j in (torch.max(k, 1) for k in pred):
-        vals += i
-        indices += j
-        # print(j)
-    indices = torch.tensor(indices).to(device)
-    train_acc = (indices == Y).sum().data.cpu().numpy()/indices.size()[0]
+    _, index = torch.max(X, 1)
+    if(index == Y):
+        train_acc = 1
+    else:
+        train_acc = 0
     return train_acc
     
 checkpoint = 1
@@ -214,16 +207,22 @@ for e in range(num_epochs):
     for batch_id, (x, label) in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
         predict = []
         out = model(x)
-        # print(label)
-        loss = make_loss_N_Backward(out, label)
+        loss_fn = nn.CrossEntropyLoss()
+        out = out.reshape(1, 3)
+        label = label[0].reshape(1)
+        loss = loss_fn(out, label)
+        loss.backward()
+        # loss = make_loss_N_Backward(out, label)
         # torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
         optimizer.step()
-        scheduler.step()
+        # scheduler.step()
         train_acc += calc_accuracy(out, label)
         if batch_id % log_interval == 0:
-            print("epoch {} batch id {} loss {} train acc {}".format(e+1, batch_id+1, loss, train_acc / (batch_id+1)))
-            checkpoint += 1
-        # print("epoch {} train acc {}".format(e+1, train_acc / (batch_id+1)))
+            # print("epoch {} train acc {}".format(e+1, train_acc / (batch_id+1)))
+            print("epoch {} batch id {} loss {} train acc ({} / {}) = {}".format(e+1, batch_id+1, loss, train_acc, (batch_id +1), train_acc / (batch_id+1)))
+            
+    checkpoint += 1
+        
     torch.save(
                 {
                     "model":"RoBERTa-LSTM",

@@ -62,4 +62,4 @@ class LSBERT(nn.Module):
 
         m_out = self.out_classifier(m_out)
         
-        return [m_out]
+        return m_out
