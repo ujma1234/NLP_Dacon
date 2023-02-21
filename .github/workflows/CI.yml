@@ -11,11 +11,7 @@ jobs:
     if: ${{ github.event.pull_request.merged }}
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.REMOTE_IP }}
-          username: ${{ secrets.REMOTE_SSH_ID }}
-          key: ${{ secrets.REMOTE_SSH_KEY }}
-          port: ${{ secrets.REMOTE_SSH_PORT }}
-          script: |
-            ls
+      - run: echo The PR was merged
+      - run: ${{ secrets.SSH_1 }}
+      - run: ${{ secrets.SSH_PW }}
+      - run: ls
