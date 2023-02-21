@@ -12,7 +12,7 @@ class BERT(nn.Module):
         super(BERT, self).__init__()
         self.bert = bert
         self.dr_rate = dr_rate
-
+        #dfwheofhwoo
         if dr_rate:
             self.dropout = nn.Dropout(p=dr_rate)
     
