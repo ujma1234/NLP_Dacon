@@ -1,22 +1,15 @@
-name: CI
+name: auto release develop branch
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
-    branches: [ master ]
+    types:
+      - closed
+    branches:
+      - dev
   
 jobs:
-  build:
+  if_merged:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Run a one-line script
-      run: echo hello, worlds!
-
-    - name: Run a multi-line script
-      run: |
-        echo Add other actions to build,
-        echo test, and deploy your project
+      - run: echo The PR was merged
