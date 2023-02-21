@@ -3,7 +3,7 @@ from torch import nn
 from torch.autograd import Variable
 
 device = torch.device("cuda:0")
-##test
+##testww
 class GRU(nn.Module):
     def __init__(self, num_classes, input_size, hidden_size, num_layers, seq_length, dr_rate):
         super(GRU, self).__init__()
