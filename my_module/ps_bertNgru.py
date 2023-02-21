@@ -3,7 +3,7 @@ from torch import nn
 
 from my_module import ps_bert
 from my_module import ps_gru
-##ddddddddddddd
+##ddddddddddddd되냐되냐
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 class GRUBERT(nn.Module):
