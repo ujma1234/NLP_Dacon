@@ -15,6 +15,7 @@ class BERT(nn.Module):
         #dfwheofhwoo
         if dr_rate:
             self.dropout = nn.Dropout(p=dr_rate)
+            #sssssssssssssssssssssssssssss
     
     def gen_attention_mask(self, token_ids, valid_length):
         attention_mask = torch.zeros_like(token_ids)
