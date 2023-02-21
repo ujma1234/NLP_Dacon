@@ -28,6 +28,8 @@ with open(data_path+"test.csv", 'r') as file:
     for row in reader:
         dataset_test.append(row)
 
+    #testtest
+
 def make_data_list(dataset):
     cnt = 0
     check = 0
