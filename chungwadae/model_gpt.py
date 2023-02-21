@@ -29,6 +29,7 @@ with open(data_path+"test.csv", 'r') as file:
         dataset_test.append(row)
 
     #testtest
+    ## 한번더
 
 def make_data_list(dataset):
     cnt = 0
