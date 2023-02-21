@@ -78,8 +78,10 @@ def make_data_list(dataset):
         cnt += 1
     return dataset
 
-dataset_train = make_data_list(dataset_train)
+# dataset_train = make_data_list(dataset_train)
 dataset_test = make_data_list(dataset_test)
+
+dataset_test = dataset_test[1:]
 
 # print(dataset_train)
 
@@ -122,9 +124,12 @@ class RoBERTaDataset(Dataset):
     def __len__(self):
         return (len(self.labels))
 
-data_train = RoBERTaDataset(dataset_train, len(dataset_train), tokenizer, 64)
+# data_train = RoBERTaDataset(dataset_train, len(dataset_train), tokenizer, 64)
+data_test = RoBERTaDataset(dataset_test, len(dataset_test), tokenizer, 64)
 
-train_dataloader = torch.utils.data.DataLoader(data_train, batch_size=1, num_workers=0)
+# train_dataloader = torch.utils.data.DataLoader(data_train, batch_size=1, num_workers=0)
+test_dataloader = torch.utils.data.DataLoader(data_test, batch_size=1, num_workers=0)
+
 
 class SentenceClassificationModel(nn.Module):
     def __init__(self, num_classes):
@@ -132,6 +137,8 @@ class SentenceClassificationModel(nn.Module):
         self.bert = transformers.AutoModel.from_pretrained('klue/bert-base')
         self.lstm = nn.LSTM(input_size=768, hidden_size=1024, num_layers=1, bidirectional=True, batch_first = True)
         self.fc = nn.Linear(2048, num_classes)
+        self.drop = nn.Dropout(p=0.1)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
         with torch.no_grad():
@@ -144,7 +151,9 @@ class SentenceClassificationModel(nn.Module):
                 attention_mask = attention_mask.to(device)
                 segment_ids = segment_ids.to(device)
                 pooler_bert = self.bert(input_ids, attention_mask, segment_ids)
-                pooler += pooler_bert[1].tolist()
+                # pooler_bert = self.drop(pooler_bert[1])
+                pooler_bert = pooler_bert[1]
+                pooler += pooler_bert.tolist()
 
             pooler = torch.tensor(pooler, dtype=torch.float32).to(device)
             pooler = pooler.reshape(1, 64, 768).to(device)
@@ -159,6 +168,9 @@ class SentenceClassificationModel(nn.Module):
         hn = hn.view(-1)
         hn = hn.reshape(1, 2048)
 
+        hn = self.relu(hn)
+        # hn = self.drop(hn)
+
         # Average the LSTM outputs for each direction
         # lstm_out = lstm_out.mean(dim=0)
         
@@ -167,49 +179,79 @@ class SentenceClassificationModel(nn.Module):
 
         logits = logits.reshape(1, 3)
         return logits
+    
+# ckpt = torch.load(".cache/robertNlstm-68.pt", map_location=device)
 
 # Define the model
 model = SentenceClassificationModel(num_classes=3).to(device)
+# model.load_state_dict(ckpt['model_state_dict'])
 
 # Define the loss function and optimizer
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
+optimizer = torch.optim.Adam(model.parameters(), lr=(2e-5)*2)
+# optimizer.load_state_dict(ckpt['optimizer_state_dict'])
 
-checkpoint = 0
-# Define the training loop
-for epoch in range(5):
-    total_loss = 0
-    for i ,(x, labels) in enumerate(tqdm(train_dataloader, total = len(train_dataloader))):
-        # Zero out the gradients from any previous steps
-        optimizer.zero_grad()
+def calc_accuracy(X,Y):
+    _, index = torch.max(X, 1)
+    if(index == Y):
+        train_acc = 1
+    else:
+        train_acc = 0
+    return train_acc
 
-        # Make predictions using the model
-        logits = model(x)
+checkpoint = 58
 
-        labels = labels[0].reshape(1)
+for epoch in range(11):
+    ckpt = torch.load(f".cache/robertNlstm-{checkpoint+epoch}.pt", map_location=device)
+    model.load_state_dict(ckpt['model_state_dict'])
+    model.eval()
+    with open(f"{data_path}submission-{epoch}.csv", 'a') as file:
+        writer = csv.writer(file)
+        writer.writerow(['index','category'])
+        for i ,(x, labels) in enumerate(tqdm(test_dataloader, total = len(test_dataloader))):
+            with torch.no_grad():
+                logits = model(x)
+            _, index = torch.max(logits, 1)
+            writer.writerow([int(labels), int(index)])
+        file.close()
 
-        # Calculate the loss between the true labels and the predictions
-        loss = criterion(logits, labels)
+# # Define the training loop
+# for epoch in range(10):
+#     train_acc = 0.0
+#     total_loss = 0
+#     for i ,(x, labels) in enumerate(tqdm(train_dataloader, total = len(train_dataloader))):
+#         # Zero out the gradients from any previous steps
+#         optimizer.zero_grad()
 
-        # Perform backpropagation to calculate the gradients
-        loss.backward()
+#         # Make predictions using the model
+#         logits = model(x)
 
-        # Update the model parameters
-        optimizer.step()
+#         labels = labels[0].reshape(1)
 
-        total_loss += loss.item()
+#         # Calculate the loss between the true labels and the predictions
+#         loss = criterion(logits, labels)
+
+#         train_acc += calc_accuracy(logits, labels)
+
+#         # Perform backpropagation to calculate the gradients
+#         loss.backward()
+
+#         # Update the model parameters
+#         optimizer.step()
+
+#         total_loss += loss.item()
         
-    # Print the average loss for the epoch
-    print(f"Epoch {epoch}: Loss = {total_loss / len(train_dataloader)}")
+#     # Print the average loss for the epoch
+#     print(f"Epoch {epoch}: Loss = {total_loss / len(train_dataloader)} Train_acc = {train_acc / len(train_dataloader)}")
 
-    torch.save(
-            {
-                "model":"RoBERTa-LSTM",
-                "epoch":epoch,
-                "model_state_dict":model.state_dict(),
-                "optimizer_state_dict":optimizer.state_dict(),
-                "description":f"RoBERTa-LSTM 체크포인트-{checkpoint}",
-            },
-            f".cache/robertNlstm-{checkpoint}.pt",
-        )
-    checkpoint += 1
+#     torch.save(
+#             {
+#                 "model":"RoBERTa-LSTM",
+#                 "epoch":epoch,
+#                 "model_state_dict":model.state_dict(),
+#                 "optimizer_state_dict":optimizer.state_dict(),
+#                 "description":f"RoBERTa-LSTM 체크포인트-{checkpoint}",
+#             },
+#             f".cache/robertNlstm-{checkpoint}.pt",
+#         )
+#     checkpoint += 1
