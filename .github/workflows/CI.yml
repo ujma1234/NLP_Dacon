@@ -18,4 +18,6 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT }}
           script: |
-            ls
+            cd suggestion-api
+            git checkout dev
+            git pull origin dev
