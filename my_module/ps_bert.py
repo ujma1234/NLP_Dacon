@@ -21,7 +21,7 @@ class BERT(nn.Module):
         for i, v in enumerate(valid_length):
             attention_mask[i][:v] = 1
         return attention_mask.float()
-
+    #ddddddddddddddddd
     def forward(self, token_ids, valid_length, segment_ids):
         attention_mask = self.gen_attention_mask(token_ids, valid_length)
         
